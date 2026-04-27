@@ -12,7 +12,7 @@ class MCPServer:
                 "transport": "stdio",
                 "command": "npx",
                 "args": ["-y", "tavily-mcp@latest"],
-                "env": {"TAVILY_API_KEY": ""}
+                "env": {"TAVILY_API_KEY": "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"}
             },
             "pdf-generator": {
                 "transport": "stdio",
