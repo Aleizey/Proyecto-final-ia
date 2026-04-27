@@ -37,9 +37,9 @@ def configurar_parent_retriever():
 
 def ingest_pdfs():
     retriever = configurar_parent_retriever()
-    print("Cargando PDFs de la carpeta rag/docs/")
+    print("Cargando PDFs de la carpeta rag/documentos_padre/")
     
-    loader = PyPDFDirectoryLoader("rag/docs/")
+    loader = PyPDFDirectoryLoader("./rag/documentos_padre")
     docs = loader.load()
     
     if docs:

@@ -1,6 +1,7 @@
 # backend/agent/rag_agent.py
 from langchain_ollama import ChatOllama
 from langchain.agents import create_agent
+from backend.agent.prompts import RAG_PROMPT
 from backend.rag.loader import configurar_parent_retriever
 
 MODELO_LLM = "gemma4:26b"
@@ -17,5 +18,5 @@ modelo = ChatOllama(model=MODELO_LLM, base_url=URL_LLM, temperature=0)
 agente = create_agent(
     model=modelo,
     tools=[tool_rag],
-    system_prompt="Eres un asistente técnico experto. Responde en español."
+    system_prompt=RAG_PROMPT
 )

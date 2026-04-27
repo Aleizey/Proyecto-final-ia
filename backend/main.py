@@ -1,10 +1,9 @@
+import json
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-import json
-import asyncio
 from fastapi.middleware.cors import CORSMiddleware
-from backend.agent.rag_agent import agente
+from backend.agent.router_agent import router_agent
 
 app = FastAPI()
 
@@ -20,7 +19,7 @@ class ChatRequest(BaseModel):
     message: str
 
 async def ai_response(message: str):
-    async for paso in agente.astream(
+    async for paso in router_agent.astream(
         {"messages": [("user", message)]}, 
         stream_mode="values"
     ):
