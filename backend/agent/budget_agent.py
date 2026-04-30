@@ -6,9 +6,10 @@ from backend.tools.server_mcp import MCPServer
 
 mcp_manager = MCPServer()
 tavily_tool = mcp_manager.get_tool_by_name("tavily")
+pdf_generator_tool = mcp_manager.get_tool_by_name("pdf-generator")
 
-if tavily_tool:
-    tools=[calcular_configuracion_equipos, tool_rag, tavily_tool]
+if tavily_tool and pdf_generator_tool:
+    tools=[calcular_configuracion_equipos, tool_rag, tavily_tool, pdf_generator_tool]
 
 budget_agent = create_agent(
     model=modelo,

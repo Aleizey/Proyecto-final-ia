@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from backend.agent.router_agent import router_agent
+from backend.agent.availability_agent import availability_agent
 
 app = FastAPI()
 
@@ -21,7 +22,23 @@ class ChatRequest(BaseModel):
 async def ai_response(message: str):
     async for paso in router_agent.astream(
         {"messages": [("user", message)]}, 
-        stream_mode="values"
+        stream_mode="values",
+        config={"configurable": {"thread_id": "Alejandro"}}
+    ):
+        if paso["messages"]:
+            ultimo_mensaje = paso["messages"][-1]
+            if ultimo_mensaje.type == "ai":
+                data = {
+                    "content": ultimo_mensaje.content,
+                    "reasoning": ultimo_mensaje.additional_kwargs.get("reasoning_content", "")
+                }
+                yield json.dumps(data) + "\n"
+
+async def availability_response(message: str):
+    async for paso in availability_agent.astream(
+        {"messages": [("user", message)]}, 
+        stream_mode="values",
+        config={"configurable": {"thread_id": "Juan"}}
     ):
         if paso["messages"]:
             ultimo_mensaje = paso["messages"][-1]
@@ -35,3 +52,7 @@ async def ai_response(message: str):
 @app.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
     return StreamingResponse(ai_response(request.message), media_type="text/event-stream")
+
+@app.post("/availability/stream")
+async def availability_stream(request: ChatRequest):
+    return StreamingResponse(availability_response(request.message), media_type="text/event-stream")

@@ -54,8 +54,8 @@ function App() {
               <Speaker size={24} className="text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-black tracking-tighter uppercase">Event<span className="text-purple-500">Audio</span> AI</h1>
-              <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em]">Soporte Técnico de Élite</p>
+              <h1 className="text-xl font-black tracking-tighter uppercase">Mar<span className="text-purple-500">audio</span></h1>
+              <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em]">Soporte Técnico</p>
             </div>
           </div>
           <div className="hidden md:block text-right">
@@ -91,7 +91,7 @@ function App() {
             <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="flex items-center gap-2 mb-4 text-purple-400">
                 <Sparkles size={18} />
-                <span className="text-xs font-bold uppercase tracking-[0.3em]">IA Response</span>
+                <span className="text-xs font-bold uppercase tracking-[0.3em]">MARAUDIO</span>
               </div>
               <div className="prose prose-invert max-w-none text-slate-200 leading-7">
                 {chat.message}

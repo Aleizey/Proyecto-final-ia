@@ -1,3 +1,4 @@
+from langgraph.checkpoint.memory import InMemorySaver
 from langchain.agents import create_agent
 from backend.agent.prompts import ROUTER_PROMPT
 from backend.agent.rag_agent import modelo, tool_rag
@@ -17,5 +18,6 @@ all_tools = [
 router_agent = create_agent(
     model=modelo,
     tools=all_tools,
+    checkpointer=InMemorySaver(),
     system_prompt=ROUTER_PROMPT
 )
