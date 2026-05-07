@@ -1,23 +1,35 @@
-from langgraph.checkpoint.memory import InMemorySaver
 from langchain.agents import create_agent
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from backend.agent.prompts import ROUTER_PROMPT
 from backend.agent.rag_agent import modelo, tool_rag
-#from backend.tools.check_agenda import consultar_disponibilidad
-#from backend.tools.calc_equipos import calcular_configuracion_equipos
 from backend.tools.send_email import send_email_tool
+import aiosqlite
+import os
 
+SQLITE_PATH = os.path.join("database/memoria_agente.sqlite")
+
+
+if not hasattr(aiosqlite.Connection, "is_alive"):
+    def is_alive_patch(self):
+        return True
+    aiosqlite.Connection.is_alive = is_alive_patch
 
 all_tools = [
     
     tool_rag, 
-    #consultar_disponibilidad, 
-    #calcular_configuracion_equipos,
     send_email_tool
 ]
+
+# async def router_agent(tools: list = []):
+
+conn = aiosqlite.connect(SQLITE_PATH)
+checkpointer = AsyncSqliteSaver(conn)
 
 router_agent = create_agent(
     model=modelo,
     tools=all_tools,
-    checkpointer=InMemorySaver(),
+    checkpointer=checkpointer,
     system_prompt=ROUTER_PROMPT
 )
+
+# return router_agent, conn

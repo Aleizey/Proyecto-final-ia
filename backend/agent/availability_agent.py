@@ -1,16 +1,18 @@
+from .rag_agent import modelo
 from langchain.agents import create_agent
 from backend.agent.prompts import AVAILABILITY_PROMPT
-from backend.tools.check_agenda import consultar_disponibilidad
-from .rag_agent import modelo
-# from langchain_google_community import GoogleCalendarToolkit
+from backend.tools.server_mcp import MCPServer
 
+mcp_manager = MCPServer()
 
-# toolkit = GoogleCalendarToolkit()
-# tools = toolkit.get_tools()
-tools.append(consultar_disponibilidad)
+async def get_availability_agent():
 
-availability_agent = create_agent(
-    model=modelo,
-    tools=tools,
-    system_prompt=AVAILABILITY_PROMPT
-)
+    await mcp_manager.connect() 
+    calendar_tools = mcp_manager.get_tools_by_namespace("google_calendar")
+
+    agent = create_agent(
+        model=modelo,
+        tools=calendar_tools,
+        system_prompt=AVAILABILITY_PROMPT
+    )
+    return agent

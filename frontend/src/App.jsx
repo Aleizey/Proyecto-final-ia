@@ -9,7 +9,6 @@ function App() {
   const handleSend = async () => {
     if (!input) return;
     setLoading(true);
-    // Tu lógica de fetch se mantiene igual...
     const response = await fetch('http://localhost:8000/chat/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

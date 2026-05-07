@@ -16,8 +16,16 @@ class MCPServer:
             },
             "pdf-generator": {
                 "transport": "stdio",
-                "command": "node",
-                "args": ["backend/tools/pdf-server.js"]
+                "command": "npx",
+                "args": ["-y", "markdown2pdf-mcp"] 
+            },
+            "google-calendar": {
+                "transport": "stdio",
+                "command": "npx",
+                "args": ["-y", "@cocal/google-calendar-mcp"],
+                "env": {
+                    "GOOGLE_OAUTH_CREDENTIALS": "/home/inta@informatica.edu/Escritorio/PRO/Proyecto-final-ia/backend/agent/credentials.json"
+                }
             }
         }
         
