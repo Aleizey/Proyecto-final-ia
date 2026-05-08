@@ -1,137 +1,60 @@
 import { useState, useEffect, useRef } from 'react';
+import { useChat } from './hooks/useChat';
 import { Send, Music, Sparkles, BrainCircuit, Plus, Trash2, MessageCircle, Loader2 } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8000';
-
 function App() {
-  const [conversations, setConversations] = useState([]);
-  const [currentThreadId, setCurrentThreadId] = useState(null);
-  const [messages, setMessages] = useState([]);
+  const {
+    conversations,
+    currentThreadId,
+    messages,
+    loading,
+    loadingConversations,
+    loadConversations,
+    loadConversationHistory,
+    createConversation,
+    deleteConversation,
+    sendMessage,
+    selectConversation,
+  } = useChat();
+
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [loadingConversations, setLoadingConversations] = useState(false);
+  const [justSentMessage, setJustSentMessage] = useState(false);
   const chatEndRef = useRef(null);
 
   useEffect(() => {
     loadConversations();
-  }, []);
+  }, [loadConversations]);
 
   useEffect(() => {
-    if (currentThreadId) {
+    if (currentThreadId && !justSentMessage) {
       loadConversationHistory(currentThreadId);
     }
-  }, [currentThreadId]);
+  }, [currentThreadId, loadConversationHistory, justSentMessage]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const loadConversations = async () => {
-    setLoadingConversations(true);
-    try {
-      const response = await fetch(`${API_BASE}/conversations`);
-      const data = await response.json();
-      setConversations(data.conversations || []);
-    } catch (e) {
-      console.error('Error loading conversations:', e);
-    }
-    setLoadingConversations(false);
-  };
-
-  const loadConversationHistory = async (threadId) => {
-    try {
-      const response = await fetch(`${API_BASE}/conversations/${threadId}`);
-      const data = await response.json();
-      const formattedMessages = data.messages.map(msg => ({
-        type: msg.type === 'HumanMessage' ? 'user' : 'ai',
-        content: msg.content
-      }));
-      setMessages(formattedMessages);
-    } catch (e) {
-      console.error('Error loading history:', e);
-      setMessages([]);
-    }
-  };
-
-  const createConversation = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/conversations`, { method: 'POST' });
-      const data = await response.json();
-      setCurrentThreadId(data.thread_id);
-      setMessages([]);
-      loadConversations();
-    } catch (e) {
-      console.error('Error creating conversation:', e);
-    }
-  };
-
-  const deleteConversation = async (threadId, e) => {
-    e.stopPropagation();
-    try {
-      await fetch(`${API_BASE}/conversations/${threadId}`, { method: 'DELETE' });
-      if (currentThreadId === threadId) {
-        setCurrentThreadId(null);
-        setMessages([]);
-      }
-      loadConversations();
-    } catch (e) {
-      console.error('Error deleting conversation:', e);
-    }
-  };
-
   const handleSend = async () => {
     if (!input.trim()) return;
-
     const userMessage = input;
     setInput('');
-    setLoading(true);
-
-    let threadId = currentThreadId;
-    if (!threadId) {
-      const response = await fetch(`${API_BASE}/conversations`, { method: 'POST' });
-      const data = await response.json();
-      threadId = data.thread_id;
-      setCurrentThreadId(threadId);
-      loadConversations();
-    }
-
-    setMessages(prev => [...prev, { type: 'user', content: userMessage }]);
-
-    try {
-      const response = await fetch(`${API_BASE}/chat/stream`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage, thread_id: threadId }),
-      });
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let aiResponse = '';
-      let reasoning = '';
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value);
-        const lines = chunk.split("\n").filter(line => line.trim());
-        for (const line of lines) {
-          try {
-            const data = JSON.parse(line);
-            aiResponse = data.content || '';
-            reasoning = data.reasoning || '';
-          } catch (e) { }
-        }
-      }
-
-      setMessages(prev => [...prev, { type: 'ai', content: aiResponse, reasoning }]);
-    } catch (e) {
-      console.error('Error sending message:', e);
-    }
-    setLoading(false);
+    setJustSentMessage(true);
+    await sendMessage(userMessage, currentThreadId);
+    setJustSentMessage(false);
   };
 
-  const selectConversation = (threadId) => {
-    setCurrentThreadId(threadId);
+  const handleCreateConversation = async () => {
+    await createConversation();
+  };
+
+  const handleDeleteConversation = async (threadId, e) => {
+    e.stopPropagation();
+    await deleteConversation(threadId);
+  };
+
+  const handleSelectConversation = (threadId) => {
+    selectConversation(threadId);
   };
 
   return (
@@ -145,7 +68,7 @@ function App() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-bold uppercase tracking-widest text-slate-500">Conversaciones</h2>
           <button
-            onClick={createConversation}
+            onClick={handleCreateConversation}
             className="p-2 bg-purple-600 hover:bg-purple-500 rounded-lg transition-colors"
           >
             <Plus size={18} className="text-white" />
@@ -163,7 +86,7 @@ function App() {
             {conversations.map(conv => (
               <div
                 key={conv.thread_id}
-                onClick={() => selectConversation(conv.thread_id)}
+                onClick={() => handleSelectConversation(conv.thread_id)}
                 className={`p-3 rounded-lg cursor-pointer transition-colors group ${currentThreadId === conv.thread_id
                   ? 'bg-purple-600/20 border border-purple-500/30'
                   : 'hover:bg-white/5 border border-transparent'
@@ -175,7 +98,7 @@ function App() {
                     <p className="text-xs text-slate-500 truncate">{conv.preview}</p>
                   </div>
                   <button
-                    onClick={(e) => deleteConversation(conv.thread_id, e)}
+                    onClick={(e) => handleDeleteConversation(conv.thread_id, e)}
                     className="p-1 text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
                   >
                     <Trash2 size={14} />
