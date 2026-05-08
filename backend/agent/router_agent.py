@@ -8,6 +8,7 @@ import os
 
 SQLITE_PATH = os.path.join("database/memoria_agente.sqlite")
 
+os.makedirs("database", exist_ok=True)
 
 if not hasattr(aiosqlite.Connection, "is_alive"):
     def is_alive_patch(self):
@@ -15,21 +16,20 @@ if not hasattr(aiosqlite.Connection, "is_alive"):
     aiosqlite.Connection.is_alive = is_alive_patch
 
 all_tools = [
-    
     tool_rag, 
     send_email_tool
 ]
 
-# async def router_agent(tools: list = []):
+async def router_agent():
 
-conn = aiosqlite.connect(SQLITE_PATH)
-checkpointer = AsyncSqliteSaver(conn)
+    conn = await aiosqlite.connect(SQLITE_PATH)
+    checkpointer = AsyncSqliteSaver(conn)
 
-router_agent = create_agent(
-    model=modelo,
-    tools=all_tools,
-    checkpointer=checkpointer,
-    system_prompt=ROUTER_PROMPT
-)
+    router = create_agent(
+        model=modelo,
+        tools=all_tools,
+        checkpointer=checkpointer,
+        system_prompt=ROUTER_PROMPT
+    )
 
-# return router_agent, conn
+    return router, conn

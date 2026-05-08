@@ -5,7 +5,7 @@ from backend.tools.server_mcp import MCPServer
 
 mcp_manager = MCPServer()
 
-async def get_availability_agent():
+async def availability_agent():
 
     await mcp_manager.connect() 
     calendar_tools = mcp_manager.get_tools_by_namespace("google_calendar")

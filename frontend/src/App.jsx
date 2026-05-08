@@ -1,56 +1,197 @@
-import { useState } from 'react';
-import { Send, Music, Speaker, Sparkles, BrainCircuit } from 'lucide-react'; // Instala lucide-react o usa SVGs
+import { useState, useEffect, useRef } from 'react';
+import { Send, Music, Sparkles, BrainCircuit, Plus, Trash2, MessageCircle, Loader2 } from 'lucide-react';
+
+const API_BASE = 'http://localhost:8000';
 
 function App() {
+  const [conversations, setConversations] = useState([]);
+  const [currentThreadId, setCurrentThreadId] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
-  const [chat, setChat] = useState({ message: '', reasoning: '' });
   const [loading, setLoading] = useState(false);
+  const [loadingConversations, setLoadingConversations] = useState(false);
+  const chatEndRef = useRef(null);
+
+  useEffect(() => {
+    loadConversations();
+  }, []);
+
+  useEffect(() => {
+    if (currentThreadId) {
+      loadConversationHistory(currentThreadId);
+    }
+  }, [currentThreadId]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const loadConversations = async () => {
+    setLoadingConversations(true);
+    try {
+      const response = await fetch(`${API_BASE}/conversations`);
+      const data = await response.json();
+      setConversations(data.conversations || []);
+    } catch (e) {
+      console.error('Error loading conversations:', e);
+    }
+    setLoadingConversations(false);
+  };
+
+  const loadConversationHistory = async (threadId) => {
+    try {
+      const response = await fetch(`${API_BASE}/conversations/${threadId}`);
+      const data = await response.json();
+      const formattedMessages = data.messages.map(msg => ({
+        type: msg.type === 'HumanMessage' ? 'user' : 'ai',
+        content: msg.content
+      }));
+      setMessages(formattedMessages);
+    } catch (e) {
+      console.error('Error loading history:', e);
+      setMessages([]);
+    }
+  };
+
+  const createConversation = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/conversations`, { method: 'POST' });
+      const data = await response.json();
+      setCurrentThreadId(data.thread_id);
+      setMessages([]);
+      loadConversations();
+    } catch (e) {
+      console.error('Error creating conversation:', e);
+    }
+  };
+
+  const deleteConversation = async (threadId, e) => {
+    e.stopPropagation();
+    try {
+      await fetch(`${API_BASE}/conversations/${threadId}`, { method: 'DELETE' });
+      if (currentThreadId === threadId) {
+        setCurrentThreadId(null);
+        setMessages([]);
+      }
+      loadConversations();
+    } catch (e) {
+      console.error('Error deleting conversation:', e);
+    }
+  };
 
   const handleSend = async () => {
-    if (!input) return;
+    if (!input.trim()) return;
+
+    const userMessage = input;
+    setInput('');
     setLoading(true);
-    const response = await fetch('http://localhost:8000/chat/stream', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: input }),
-    });
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
+    let threadId = currentThreadId;
+    if (!threadId) {
+      const response = await fetch(`${API_BASE}/conversations`, { method: 'POST' });
+      const data = await response.json();
+      threadId = data.thread_id;
+      setCurrentThreadId(threadId);
+      loadConversations();
+    }
 
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value);
-      const lines = chunk.split("\n").filter(line => line.trim());
-      for (const line of lines) {
-        try {
-          const data = JSON.parse(line);
-          setChat({
-            message: data.content || '',
-            reasoning: data.reasoning || ''
-          });
-        } catch (e) { console.error(e); }
+    setMessages(prev => [...prev, { type: 'user', content: userMessage }]);
+
+    try {
+      const response = await fetch(`${API_BASE}/chat/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage, thread_id: threadId }),
+      });
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let aiResponse = '';
+      let reasoning = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n").filter(line => line.trim());
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line);
+            aiResponse = data.content || '';
+            reasoning = data.reasoning || '';
+          } catch (e) { }
+        }
       }
+
+      setMessages(prev => [...prev, { type: 'ai', content: aiResponse, reasoning }]);
+    } catch (e) {
+      console.error('Error sending message:', e);
     }
     setLoading(false);
   };
 
+  const selectConversation = (threadId) => {
+    setCurrentThreadId(threadId);
+  };
+
   return (
-    <div className="min-h-screen bg-neutral-950 text-slate-100 font-sans selection:bg-purple-500/30">
-      {/* BACKGROUND DECORATION */}
+    <div className="min-h-screen bg-neutral-950 text-slate-100 font-sans selection:bg-purple-500/30 flex">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-purple-900/20 blur-[120px] rounded-full"></div>
         <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-blue-900/20 blur-[120px] rounded-full"></div>
       </div>
 
-      <div className="relative z-10 max-w-4xl mx-auto p-4 md:p-8 flex flex-col h-screen">
+      <aside className="w-80 border-r border-white/10 p-4 flex flex-col z-10">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-slate-500">Conversaciones</h2>
+          <button
+            onClick={createConversation}
+            className="p-2 bg-purple-600 hover:bg-purple-500 rounded-lg transition-colors"
+          >
+            <Plus size={18} className="text-white" />
+          </button>
+        </div>
 
-        {/* HEADER AREA */}
+        {loadingConversations ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="animate-spin text-purple-500" size={24} />
+          </div>
+        ) : conversations.length === 0 ? (
+          <p className="text-sm text-slate-600 text-center py-8">No hay conversaciones</p>
+        ) : (
+          <div className="flex-1 overflow-y-auto space-y-2">
+            {conversations.map(conv => (
+              <div
+                key={conv.thread_id}
+                onClick={() => selectConversation(conv.thread_id)}
+                className={`p-3 rounded-lg cursor-pointer transition-colors group ${currentThreadId === conv.thread_id
+                  ? 'bg-purple-600/20 border border-purple-500/30'
+                  : 'hover:bg-white/5 border border-transparent'
+                  }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{conv.title}</p>
+                    <p className="text-xs text-slate-500 truncate">{conv.preview}</p>
+                  </div>
+                  <button
+                    onClick={(e) => deleteConversation(conv.thread_id, e)}
+                    className="p-1 text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </aside>
+
+      <main className="flex-1 flex flex-col max-w-4xl mx-auto p-4 md:p-8 z-10">
         <header className="flex items-center justify-between mb-8 border-b border-white/10 pb-4">
           <div className="flex items-center gap-3">
             <div className="bg-gradient-to-br from-purple-600 to-blue-600 p-2 rounded-lg shadow-lg shadow-purple-500/20">
-              <Speaker size={24} className="text-white" />
+              <MessageCircle size={24} className="text-white" />
             </div>
             <div>
               <h1 className="text-xl font-black tracking-tighter uppercase">Mar<span className="text-purple-500">audio</span></h1>
@@ -62,9 +203,8 @@ function App() {
           </div>
         </header>
 
-        {/* CHAT AREA */}
-        <main className="flex-1 overflow-y-auto space-y-6 pr-2 custom-scrollbar">
-          {!chat.message && !loading && (
+        <div className="flex-1 overflow-y-hidden space-y-6 pr-2 custom-scrollbar">
+          {!currentThreadId && messages.length === 0 && !loading && (
             <div className="flex flex-col items-center justify-center h-full text-center opacity-40">
               <Music size={48} className="mb-4" />
               <p className="text-lg italic">¿En qué puedo ayudarte con tu evento hoy?</p>
@@ -72,31 +212,38 @@ function App() {
             </div>
           )}
 
-          {/* REASONING BLOCK (Estilo "Caja de Herramientas") */}
-          {chat.reasoning && (
-            <div className="bg-neutral-900/50 border-l-2 border-amber-500/50 p-4 rounded-r-xl">
-              <div className="flex items-center gap-2 mb-2 text-amber-500">
-                <BrainCircuit size={16} />
-                <span className="text-xs font-bold uppercase tracking-widest">Procesando Configuración</span>
-              </div>
-              <p className="text-sm text-slate-400 italic font-mono leading-relaxed">
-                {chat.reasoning}
-              </p>
-            </div>
-          )}
+          {messages.map((msg, i) => (
+            <div key={i}>
+              {msg.reasoning && (
+                <div className="bg-neutral-900/50 border-l-2 border-amber-500/50 p-4 rounded-r-xl mb-2">
+                  <div className="flex items-center gap-2 mb-2 text-amber-500">
+                    <BrainCircuit size={16} />
+                    <span className="text-xs font-bold uppercase tracking-widest">Procesando</span>
+                  </div>
+                  <p className="text-sm text-slate-400 italic font-mono leading-relaxed">
+                    {msg.reasoning}
+                  </p>
+                </div>
+              )}
 
-          {/* RESPONSE BLOCK */}
-          {chat.message && (
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="flex items-center gap-2 mb-4 text-purple-400">
-                <Sparkles size={18} />
-                <span className="text-xs font-bold uppercase tracking-[0.3em]">MARAUDIO</span>
-              </div>
-              <div className="prose prose-invert max-w-none text-slate-200 leading-7">
-                {chat.message}
-              </div>
+              {msg.type === 'user' ? (
+                <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-2xl">
+                  <p className="text-sm text-blue-300 font-medium mb-1">Tú</p>
+                  <p className="text-slate-200">{msg.content}</p>
+                </div>
+              ) : (
+                <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-2xl shadow-2xl">
+                  <div className="flex items-center gap-2 mb-4 text-purple-400">
+                    <Sparkles size={18} />
+                    <span className="text-xs font-bold uppercase tracking-[0.3em]">MARAUDIO</span>
+                  </div>
+                  <div className="prose prose-invert max-w-none text-slate-200 leading-7">
+                    {msg.content}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          ))}
 
           {loading && (
             <div className="flex items-center gap-2 text-purple-500 animate-pulse px-4">
@@ -105,9 +252,10 @@ function App() {
               <div className="w-2 h-2 bg-current rounded-full delay-150"></div>
             </div>
           )}
-        </main>
 
-        {/* INPUT AREA */}
+          <div ref={chatEndRef} />
+        </div>
+
         <footer className="mt-6">
           <div className="relative group">
             <input
@@ -129,7 +277,7 @@ function App() {
             Powered by SoundEngineering AI v3.5 — 2026 High Fidelity Standard
           </p>
         </footer>
-      </div>
+      </main>
     </div>
   );
 }
