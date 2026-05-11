@@ -8,6 +8,8 @@ class MCPServer:
 
     async def connect(self):
         """Inicializa las conexiones con todos los servidores MCP"""
+        creds_path = os.path.join(os.path.dirname(__file__), "..", "agent", "credentials.json")
+        
         config = {
             "tavily": {
                 "transport": "stdio",
@@ -15,17 +17,12 @@ class MCPServer:
                 "args": ["-y", "tavily-mcp@latest"],
                 "env": {"TAVILY_API_KEY": "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"}
             },
-            "pdf-generator": {
-                "transport": "stdio",
-                "command": "npx",
-                "args": ["-y", "markdown2pdf-mcp"] 
-            },
             "google-calendar": {
                 "transport": "stdio",
                 "command": "npx",
                 "args": ["-y", "@cocal/google-calendar-mcp"],
                 "env": {
-                    "GOOGLE_OAUTH_CREDENTIALS": os.path.join(os.path.dirname(__file__), "..", "agent", "credentials.json")
+                    "GOOGLE_OAUTH_CREDENTIALS": creds_path
                 }
             }
         }
@@ -41,9 +38,8 @@ class MCPServer:
     def get_tools_by_namespace(self, namespace: str):
         """Devuelve herramientas filtrando por namespace"""
         namespace_map = {
-            "google_calendar": ["list-events", "get-event", "create-event", "update-event", "delete-event", "calendar", "event", "list_events"],
-            "tavily": ["tavily", "search"],
-            "pdf": ["pdf", "markdown"]
+            "google_calendar": ["list-calendars", "list-events", "get-event", "search-events", "create-event", "update-event", "delete-event", "respond-to-event", "get-freebusy", "get-current-time", "list-colors", "manage-accounts"],
+            "tavily": ["tavily", "search"]
         }
         keywords = namespace_map.get(namespace, [namespace])
         return [t for t in self.tools if any(kw.lower() in t.name.lower() for kw in keywords)]

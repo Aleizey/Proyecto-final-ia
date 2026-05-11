@@ -225,10 +225,14 @@ async def get_conversation_data(thread_id: str):
                         "content": msg.content
                     })
             if messages:
-                preview = messages[-1].get("content", "")[:50]
+                last_msg_content = messages[-1].get("content", "")
+                if isinstance(last_msg_content, list):
+                    preview = str(last_msg_content[0])[:50] if last_msg_content else ""
+                else:
+                    preview = str(last_msg_content)[:50]
                 first_user_msg = next((m for m in messages if m.get("type") == "HumanMessage"), None)
                 if first_user_msg:
-                    title = first_user_msg.get("content", title)[:30]
+                    title = str(first_user_msg.get("content", ""))[:30] if isinstance(first_user_msg.get("content", ""), str) else str(first_user_msg.get("content", ""))[:30]
 
     await conn.close()
 

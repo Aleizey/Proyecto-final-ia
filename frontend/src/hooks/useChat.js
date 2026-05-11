@@ -12,21 +12,23 @@ function normalizeMessages(messages) {
     
     if (!type) continue;
     
+    const content = typeof msg.content === 'string' ? msg.content : String(msg.content || '');
+    
     if (type === lastType) {
       const idx = cleaned.findIndex(m => m.type === type);
       if (idx !== -1) {
         cleaned[idx] = {
           type,
-          content: msg.content || cleaned[idx].content,
+          content: content || cleaned[idx].content,
           reasoning: msg.reasoning !== undefined ? msg.reasoning : cleaned[idx].reasoning,
           pdfFile: msg.pdfFile !== undefined ? msg.pdfFile : cleaned[idx].pdfFile
         };
       }
     } else {
-      if (msg.content && msg.content.trim().length > 0) {
+      if (content && content.trim().length > 0) {
         cleaned.push({
           type,
-          content: msg.content,
+          content,
           reasoning: msg.reasoning || '',
           pdfFile: msg.pdfFile || null
         });
@@ -74,7 +76,7 @@ export function useChat() {
       const data = await response.json();
       const formattedMessages = data.messages.map(msg => ({
         type: msg.type === 'HumanMessage' ? 'user' : 'ai',
-        content: msg.content,
+        content: typeof msg.content === 'string' ? msg.content : String(msg.content || ''),
         reasoning: msg.reasoning || '',
         pdfFile: msg.pdfFile || null
       }));
