@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useChat } from './hooks/useChat';
-import { Send, Music, Sparkles, BrainCircuit, Plus, Trash2, MessageCircle, Loader2 } from 'lucide-react';
+import { Send, Music, Sparkles, BrainCircuit, Plus, Trash2, MessageCircle, Loader2, Download, FileText } from 'lucide-react';
 
 function App() {
   const {
@@ -15,15 +15,19 @@ function App() {
     deleteConversation,
     sendMessage,
     selectConversation,
+    presupuestos,
+    loadPresupuestos,
   } = useChat();
 
   const [input, setInput] = useState('');
+  const [showPresupuestos, setShowPresupuestos] = useState(false);
   const [justSentMessage, setJustSentMessage] = useState(false);
   const chatEndRef = useRef(null);
 
   useEffect(() => {
     loadConversations();
-  }, [loadConversations]);
+    loadPresupuestos();
+  }, [loadConversations, loadPresupuestos]);
 
   useEffect(() => {
     if (currentThreadId && !justSentMessage) {
@@ -121,10 +125,53 @@ function App() {
               <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em]">Soporte Técnico</p>
             </div>
           </div>
-          <div className="hidden md:block text-right">
-            <span className="text-[10px] font-mono text-purple-400 bg-purple-400/10 px-2 py-1 rounded">SYSTEM ONLINE</span>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowPresupuestos(!showPresupuestos)}
+              className="flex items-center gap-2 px-3 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 rounded-lg transition-colors"
+            >
+              <FileText size={18} className="text-purple-400" />
+              <span className="text-sm text-purple-400">Presupuestos</span>
+              {presupuestos.length > 0 && (
+                <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">{presupuestos.length}</span>
+              )}
+            </button>
+            <div className="hidden md:block text-right">
+              <span className="text-[10px] font-mono text-purple-400 bg-purple-400/10 px-2 py-1 rounded">SYSTEM ONLINE</span>
+            </div>
           </div>
         </header>
+
+        {showPresupuestos && (
+          <div className="mb-6 bg-white/5 border border-white/10 rounded-2xl p-4">
+            <h3 className="text-sm font-bold text-purple-400 mb-3 flex items-center gap-2">
+              <FileText size={16} />
+              PDFs Generados
+            </h3>
+            {presupuestos.length === 0 ? (
+              <p className="text-sm text-slate-500">No hay presupuestos generados</p>
+            ) : (
+              <div className="space-y-2">
+                {presupuestos.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between bg-white/5 p-3 rounded-lg">
+                    <div>
+                      <p className="text-sm text-slate-200">{p.name}</p>
+                      <p className="text-xs text-slate-500">{(p.size / 1024).toFixed(1)} KB</p>
+                    </div>
+                    <a
+                      href={`http://localhost:8000/presupuestos/${p.name}`}
+                      download
+                      className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded-lg transition-colors"
+                    >
+                      <Download size={14} className="text-white" />
+                      <span className="text-sm text-white">Descargar</span>
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-hidden space-y-6 pr-2 custom-scrollbar">
           {!currentThreadId && messages.length === 0 && !loading && (
@@ -149,7 +196,7 @@ function App() {
                 </div>
               )}
 
-              {msg.type === 'user' ? (
+              {msg.type === 'user' || msg.type === 'HumanMessage' ? (
                 <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-2xl">
                   <p className="text-sm text-blue-300 font-medium mb-1">Tú</p>
                   <p className="text-slate-200">{msg.content}</p>
@@ -163,6 +210,25 @@ function App() {
                   <div className="prose prose-invert max-w-none text-slate-200 leading-7">
                     {msg.content}
                   </div>
+                  {msg.pdfFile && (
+                    <div className="mt-4 flex items-center justify-between bg-purple-600/20 border border-purple-500/30 p-4 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <FileText size={24} className="text-purple-400" />
+                        <div>
+                          <p className="text-sm font-medium text-slate-200">{msg.pdfFile}</p>
+                          <p className="text-xs text-slate-500">PDF generado</p>
+                        </div>
+                      </div>
+                      <a
+                        href={`http://localhost:8000/presupuestos/${msg.pdfFile}`}
+                        download
+                        className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg transition-colors"
+                      >
+                        <Download size={16} className="text-white" />
+                        <span className="text-sm text-white font-medium">Descargar PDF</span>
+                      </a>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

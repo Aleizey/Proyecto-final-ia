@@ -33,6 +33,15 @@ database/
 *.sqlite3
 *.db
 
+# PDFs generados
+presupuestos/
+
+# Chroma DB
+rag/chroma_db/
+
+# Credenciales
+credentials.json
+
 # Environment variables
 .env
 .env.local

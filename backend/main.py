@@ -1,8 +1,10 @@
 import json
 import uuid
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+import os
 from fastapi.middleware.cors import CORSMiddleware
 from backend.agent.router_agent import router_agent
 from backend.agent.availability_agent import availability_agent
@@ -12,6 +14,9 @@ import aiosqlite
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 app = FastAPI()
+
+os.makedirs("presupuestos", exist_ok=True)
+app.mount("/presupuestos", StaticFiles(directory="presupuestos"), name="presupuestos")
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,7 +37,38 @@ async def get_checkpointer():
 async def ai_response(message: str, thread_id: str):
     agent, conn = await router_agent()
     async for paso in agent.astream(
-        {"messages": [("user", message)]}, 
+        {"messages": [("user", message)]},
+        stream_mode="values",
+        config={"configurable": {"thread_id": thread_id}}
+    ):
+        if paso["messages"]:
+            ultimo_mensaje = paso["messages"][-1]
+            if ultimo_mensaje.type == "ai":
+                content = ultimo_mensaje.content
+                pdf_file = None
+
+                import re
+                match = re.search(r'presupuesto[_\s]+[^\s]+\.pdf', content)
+                if match:
+                    pdf_file = match.group(0)
+                elif "PDF generado" in content:
+                    archivos = os.listdir("presupuestos")
+                    archivos.sort(key=lambda x: os.path.getmtime(os.path.join("presupuestos", x)), reverse=True)
+                    if archivos:
+                        pdf_file = archivos[0]
+
+                data = {
+                    "content": content,
+                    "reasoning": ultimo_mensaje.additional_kwargs.get("reasoning_content", ""),
+                    "pdf_file": pdf_file
+                }
+                yield json.dumps(data) + "\n"
+    await conn.close()
+
+async def availability_response(message: str, thread_id: str):
+    agent, conn = await availability_agent()
+    async for paso in agent.astream(
+        {"messages": [("user", message)]},
         stream_mode="values",
         config={"configurable": {"thread_id": thread_id}}
     ):
@@ -46,26 +82,10 @@ async def ai_response(message: str, thread_id: str):
                 yield json.dumps(data) + "\n"
     await conn.close()
 
-async def availability_response(message: str, thread_id: str):
-    agent = await availability_agent()
-    async for paso in agent.astream(
-        {"messages": [("user", message)]}, 
-        stream_mode="values",
-        config={"configurable": {"thread_id": thread_id}}
-    ):
-        if paso["messages"]:
-            ultimo_mensaje = paso["messages"][-1]
-            if ultimo_mensaje.type == "ai":
-                data = {
-                    "content": ultimo_mensaje.content,
-                    "reasoning": ultimo_mensaje.additional_kwargs.get("reasoning_content", "")
-                }
-                yield json.dumps(data) + "\n"
-
 async def budget_response(message: str, thread_id: str):
-    agent = budget_agent
+    agent, conn = await budget_agent()
     async for paso in agent.astream(
-        {"messages": [("user", message)]}, 
+        {"messages": [("user", message)]},
         stream_mode="values",
         config={"configurable": {"thread_id": thread_id}}
     ):
@@ -77,6 +97,7 @@ async def budget_response(message: str, thread_id: str):
                     "reasoning": ultimo_mensaje.additional_kwargs.get("reasoning_content", "")
                 }
                 yield json.dumps(data) + "\n"
+    await conn.close()
 
 
 @app.post("/chat/stream")
@@ -97,22 +118,48 @@ async def budget_stream(request: ChatRequest):
     return StreamingResponse(budget_response(request.message, thread_id), media_type="text/event-stream")
 
 
+@app.get("/presupuestos")
+async def list_presupuestos():
+    """Lista todos los PDFs generados"""
+    files = []
+    for f in os.listdir("presupuestos"):
+        if f.endswith(".pdf"):
+            path = os.path.join("presupuestos", f)
+            files.append({
+                "name": f,
+                "size": os.path.getsize(path),
+                "url": f"/presupuestos/{f}"
+            })
+    return files
+
+
+@app.get("/presupuestos/{filename}")
+async def download_presupuesto(filename: str):
+    """Descarga un PDF"""
+    if not filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Solo archivos PDF")
+    path = os.path.join("presupuestos", filename)
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    return FileResponse(path, media_type="application/pdf", filename=filename)
+
+
 @app.get("/conversations")
 async def list_conversations():
     import aiosqlite
     from backend.agent.router_agent import SQLITE_PATH
-    
+
     conn = await aiosqlite.connect(SQLITE_PATH)
     cursor = await conn.execute("SELECT DISTINCT thread_id FROM checkpoints")
     rows = await cursor.fetchall()
     await conn.close()
-    
+
     conversations = []
     for row in rows:
         thread_id = row[0]
         conv = await get_conversation_data(thread_id)
         conversations.append(conv)
-    
+
     return ConversationListResponse(conversations=conversations)
 
 
@@ -120,19 +167,19 @@ async def get_conversation_data(thread_id: str):
     import aiosqlite
     from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
     from backend.agent.router_agent import SQLITE_PATH
-    
+
     conn = await aiosqlite.connect(SQLITE_PATH)
     checkpointer = AsyncSqliteSaver(conn)
     config = {"configurable": {"thread_id": thread_id}}
     checkpoint = await checkpointer.aget(config)
-    
+
     config = {"configurable": {"thread_id": thread_id}}
     checkpoint = await checkpointer.aget(config)
-    
+
     messages = []
     title = f"Chat {thread_id}"
     preview = ""
-    
+
     if checkpoint and 'channel_values' in checkpoint:
         cv = checkpoint.get('channel_values', {})
         if 'messages' in cv:
@@ -147,9 +194,9 @@ async def get_conversation_data(thread_id: str):
                 first_user_msg = next((m for m in messages if m.get("type") == "HumanMessage"), None)
                 if first_user_msg:
                     title = first_user_msg.get("content", title)[:30]
-    
+
     await conn.close()
-    
+
     return ConversationMeta(
         thread_id=thread_id,
         title=title,
@@ -188,12 +235,12 @@ async def create_conversation():
 async def delete_conversation(thread_id: str):
     import aiosqlite
     from backend.agent.router_agent import SQLITE_PATH
-    
+
     conn = await aiosqlite.connect(SQLITE_PATH)
     try:
         await conn.execute("DELETE FROM checkpoints WHERE thread_id = ?", (thread_id,))
         await conn.commit()
     finally:
         await conn.close()
-    
+
     return {"message": "Conversation deleted", "thread_id": thread_id}

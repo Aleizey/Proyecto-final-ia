@@ -8,6 +8,17 @@ export function useChat() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingConversations, setLoadingConversations] = useState(false);
+  const [presupuestos, setPresupuestos] = useState([]);
+
+  const loadPresupuestos = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/presupuestos`);
+      const data = await response.json();
+      setPresupuestos(data);
+    } catch (e) {
+      console.error('Error loading presupuestos:', e);
+    }
+  }, []);
 
   const loadConversations = useCallback(async () => {
     setLoadingConversations(true);
@@ -93,6 +104,7 @@ export function useChat() {
       const decoder = new TextDecoder();
       let aiResponse = '';
       let reasoning = '';
+      let pdfFile = null;
 
       while (true) {
         const { value, done } = await reader.read();
@@ -104,11 +116,16 @@ export function useChat() {
             const data = JSON.parse(line);
             aiResponse = data.content || '';
             reasoning = data.reasoning || '';
+            pdfFile = data.pdf_file || null;
           } catch (e) {}
         }
       }
 
-      setMessages(prev => [...prev, { type: 'ai', content: aiResponse, reasoning }]);
+      setMessages(prev => [...prev, { type: 'ai', content: aiResponse, reasoning, pdfFile }]);
+      if (pdfFile) {
+        loadPresupuestos();
+      }
+
       return currentThread;
     } catch (e) {
       console.error('Error sending message:', e);
@@ -134,5 +151,7 @@ export function useChat() {
     deleteConversation,
     sendMessage,
     selectConversation,
+    presupuestos,
+    loadPresupuestos,
   };
 }
