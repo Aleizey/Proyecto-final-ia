@@ -2,7 +2,7 @@ from langchain_ollama import ChatOllama
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from backend.agent.prompts import ROUTER_PROMPT
-from backend.agent.rag_agent import tool_rag
+from backend.agent.rag_agent import tool_equipos, tool_presupuestos, tool_sonido
 from backend.tools.send_email import send_email_tool
 from backend.tools.generate_pdf import generar_pdf_presupuesto
 import aiosqlite
@@ -41,7 +41,7 @@ async def router_agent():
     checkpointer = AsyncSqliteSaver(conn)
 
     modelo = ChatOllama(model="gemma4:latest", temperature=0)
-    all_tools = [generar_pdf_presupuesto, send_email_tool, tool_rag] + get_cached_tools()
+    all_tools = [generar_pdf_presupuesto, send_email_tool, tool_equipos, tool_presupuestos, tool_sonido] + get_cached_tools()
 
     router = create_react_agent(
         model=modelo,

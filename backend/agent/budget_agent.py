@@ -1,18 +1,15 @@
 from langchain.agents import create_agent
+from langchain_ollama import ChatOllama
 from backend.agent.prompts import BUDGET_PROMPT
-from .rag_agent import modelo, tool_rag
+from backend.agent.rag_agent import tool_equipos, tool_presupuestos, tool_sonido
 from backend.tools.generate_pdf import generar_pdf_presupuesto
-from backend.tools.server_mcp import MCPServer
 
-mcp_manager = MCPServer()
-tools = [tool_rag, generar_pdf_presupuesto]
+MODELO = "gemma4:latest"
 
-tavily_tool = mcp_manager.get_tool_by_name("tavily")
-if tavily_tool:
-    tools.append(tavily_tool)
+modelo = ChatOllama(model=MODELO, temperature=0)
 
 budget_agent = create_agent(
     model=modelo,
-    tools=tools,
+    tools=[tool_equipos, tool_presupuestos, tool_sonido, generar_pdf_presupuesto],
     system_prompt=BUDGET_PROMPT
 )

@@ -212,36 +212,41 @@ function App() {
                 </div>
               )}
 
-{msg.type === 'user' || msg.type === 'HumanMessage' ? (
-                <div className="max-w-xl ml-auto">
-                  <div className="bg-blue-600/30 p-4 rounded-full px-10">
-                    <p className="text-lg text-slate-200">{msg.content}</p>
+              {msg.type === 'user' || msg.type === 'HumanMessage' ? (
+                <div className="flex justify-end">
+                  <div className="max-w-xl">
+                    <div className="bg-blue-600/30 p-4 rounded-full px-5">
+                      <p className="text-lg text-slate-200">{msg.content}</p>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="max-w-2xl">
-                  <div className="flex items-center gap-2 mb-2 text-purple-400">
-                    <Sparkles size={16} />
-                    <span className="text-xs font-bold uppercase tracking-[0.3em]">MARAUDIO</span>
-                  </div>
-                  <div
-                    className="text-slate-300 leading-relaxed text-lg"
-                    dangerouslySetInnerHTML={{ __html: formatMarkdown(msg.content) }}
-                  />
-                  {msg.pdfFile && (
-                    <div className="mt-3 flex items-center gap-3 bg-purple-600/10 border border-purple-500/30 p-3 rounded-xl inline-flex">
-                      <FileText size={20} className="text-purple-400" />
-                      <span className="text-sm text-slate-200">{msg.pdfFile}</span>
-                      <a
-                        href={`http://localhost:8000/presupuestos/${msg.pdfFile}`}
-                        download
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded-lg transition-colors ml-2"
-                      >
-                        <Download size={14} className="text-white" />
-                        <span className="text-sm text-white">Descargar</span>
-                      </a>
+                <div className="flex justify-start">
+                  <div className="max-w-2xl">
+                    <div className="flex items-center gap-2 mb-2 text-purple-400">
+                      <Sparkles size={16} />
+                      <span className="text-xs font-bold uppercase tracking-[0.3em]">MARAUDIO</span>
                     </div>
-                  )}
+                    <div
+                      className="text-slate-300 leading-relaxed text-lg"
+                      dangerouslySetInnerHTML={{ __html: formatMarkdown(msg.content) }}
+                    >
+                    </div>
+                    {msg.pdfFile && (
+                      <div className="mt-3 flex items-center gap-3 bg-purple-600/10 border border-purple-500/30 p-3 rounded-xl inline-flex">
+                        <FileText size={20} className="text-purple-400" />
+                        <span className="text-sm text-slate-200">{msg.pdfFile}</span>
+                        <a
+                          href={`http://localhost:8000/presupuestos/${msg.pdfFile}`}
+                          download
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded-lg transition-colors ml-2"
+                        >
+                          <Download size={14} className="text-white" />
+                          <span className="text-sm text-white">Descargar</span>
+                        </a>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

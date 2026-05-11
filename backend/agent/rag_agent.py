@@ -1,22 +1,17 @@
 # backend/agent/rag_agent.py
-from langchain_ollama import ChatOllama
-from langchain.agents import create_agent
-from backend.agent.prompts import RAG_PROMPT
-from backend.rag.loader import configurar_parent_retriever
+from backend.rag.loader import get_retriever
 
-MODELO_LLM = "gemma4:latest"
-# URL_LLM = "http://192.168.117.93:11434"
-    
-retriever = configurar_parent_retriever()
-tool_rag = retriever.as_tool(
-    name="Busquedaequipos",
-    description="Busca información sobre equipos de sonido e iluminación."
+tool_equipos = get_retriever("equipos").as_tool(
+    name="BusquedaEquipos",
+    description="Busca información sobre equipos de sonido, iluminacion e infraestructura tecnica. USA ESTA HERRAMIENTA cuando el usuario pregunte sobre equipos especificos, caracteristicas tecnicas, marcas o modelos."
 )
 
-modelo = ChatOllama(model=MODELO_LLM, temperature=0)
+tool_presupuestos = get_retriever("presupuestos").as_tool(
+    name="BusquedaPresupuestos",
+    description="Busca informacion sobre tarifas, precios y plantillas de presupuestos. USA ESTA HERRAMIENTA cuando el usuario pregunte sobre precios, tarifas o quiera hacer un presupuesto."
+)
 
-agente = create_agent(
-    model=modelo,
-    tools=[tool_rag],
-    system_prompt=RAG_PROMPT
+tool_sonido = get_retriever("sonido").as_tool(
+    name="BusquedaSonido",
+    description="Busca informacion sobre configuracion de PA, teoria de sonido, acustica y mezcladoras. USA ESTA HERRAMIENTA cuando el usuario pregunte sobre configuracion de audio, consejos de sonido o teoria acustica."
 )

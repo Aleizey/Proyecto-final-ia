@@ -1,5 +1,6 @@
 import json
 import uuid
+import re
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -12,6 +13,40 @@ from backend.agent.budget_agent import budget_agent
 from backend.models import ChatRequest, ConversationHistoryResponse, ConversationMeta, ConversationListResponse, CreateConversationResponse
 import aiosqlite
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+
+def limpiar_contenido(content: str) -> str:
+    content = re.sub(r'\[Document[^\]]*?\]', '', content)
+    content = re.sub(r'\(\s*metadata\s*=\s*\{[^)]*\}', '', content)
+    content = re.sub(r'page_content\s*=\s*["\'][^"\']*["\']', '', content)
+    content = re.sub(r'producer\s*=\s*["\'][^"\']*["\']', '', content)
+    content = re.sub(r'creator\s*=\s*["\'][^"\']*["\']', '', content)
+    content = re.sub(r'author\s*=\s*["\'][^"\']*["\']', '', content)
+    content = re.sub(r'total_pages\s*=\s*\d+', '', content)
+    content = re.sub(r'page\s*=\s*\d+', '', content)
+    content = re.sub(r'creationdate\s*=\s*["\'][^"\']*["\']', '', content)
+    content = re.sub(r'moddate\s*=\s*["\'][^"\']*["\']', '', content)
+    content = re.sub(r'page_label\s*=\s*["\'][^"\']*["\']', '', content)
+    content = re.sub(r"'source'\s*:\s*'[^']*'", '', content)
+    
+    lines = content.split('\n')
+    cleaned_lines = []
+    maraudio_count = 0
+    
+    for line in lines:
+        stripped = line.strip()
+        if '[Document' in stripped or 'metadata{' in stripped or 'page_content=' in stripped:
+            continue
+        if stripped == 'MARAUDIO':
+            maraudio_count += 1
+            if maraudio_count <= 1:
+                cleaned_lines.append(line)
+        else:
+            if stripped:
+                cleaned_lines.append(line)
+    
+    content = '\n'.join(cleaned_lines)
+    content = re.sub(r'\n{3,}', '\n\n', content)
+    return content.strip()
 
 app = FastAPI()
 
@@ -44,7 +79,7 @@ async def ai_response(message: str, thread_id: str):
         if paso["messages"]:
             ultimo_mensaje = paso["messages"][-1]
             if ultimo_mensaje.type == "ai":
-                content = ultimo_mensaje.content
+                content = limpiar_contenido(ultimo_mensaje.content)
                 pdf_file = None
 
                 import re

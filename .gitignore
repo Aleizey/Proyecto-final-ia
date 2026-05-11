@@ -36,8 +36,19 @@ database/
 # PDFs generados
 presupuestos/
 
-# Chroma DB
+# Chroma DB y stores de documentos
 rag/chroma_db/
+rag/store_equipos/
+rag/store_presupuestos/
+rag/store_sonido/
+
+# Documentos fuente RAG (PDFs)
+rag/equipos/*.pdf
+rag/presupuestos/*.pdf
+rag/sonido/*.pdf
+rag/equipos/
+rag/presupuestos/
+rag/sonido/
 
 # Credenciales
 backend/agent/credentials.json
