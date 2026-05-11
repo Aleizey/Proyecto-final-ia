@@ -2,6 +2,42 @@ import { useState, useCallback } from 'react';
 
 const API_BASE = import.meta.env.VITE_APP_BACKEND_URL || 'http://localhost:8000';
 
+function normalizeMessages(messages) {
+  const cleaned = [];
+  let lastType = null;
+  
+  for (const msg of messages) {
+    const type = msg.type === 'user' || msg.type === 'HumanMessage' ? 'user' : 
+                 msg.type === 'ai' || msg.type === 'AIMessage' ? 'ai' : null;
+    
+    if (!type) continue;
+    
+    if (type === lastType) {
+      const idx = cleaned.findIndex(m => m.type === type);
+      if (idx !== -1) {
+        cleaned[idx] = {
+          type,
+          content: msg.content || cleaned[idx].content,
+          reasoning: msg.reasoning !== undefined ? msg.reasoning : cleaned[idx].reasoning,
+          pdfFile: msg.pdfFile !== undefined ? msg.pdfFile : cleaned[idx].pdfFile
+        };
+      }
+    } else {
+      if (msg.content && msg.content.trim().length > 0) {
+        cleaned.push({
+          type,
+          content: msg.content,
+          reasoning: msg.reasoning || '',
+          pdfFile: msg.pdfFile || null
+        });
+        lastType = type;
+      }
+    }
+  }
+  
+  return cleaned;
+}
+
 export function useChat() {
   const [conversations, setConversations] = useState([]);
   const [currentThreadId, setCurrentThreadId] = useState(null);
@@ -38,9 +74,11 @@ export function useChat() {
       const data = await response.json();
       const formattedMessages = data.messages.map(msg => ({
         type: msg.type === 'HumanMessage' ? 'user' : 'ai',
-        content: msg.content
+        content: msg.content,
+        reasoning: msg.reasoning || '',
+        pdfFile: msg.pdfFile || null
       }));
-      setMessages(formattedMessages);
+      setMessages(normalizeMessages(formattedMessages));
     } catch (e) {
       console.error('Error loading history:', e);
       setMessages([]);
@@ -91,7 +129,10 @@ export function useChat() {
     }
 
     const userMessage = { type: 'user', content: message };
-    setMessages(prev => [...prev, userMessage]);
+    setMessages(prev => {
+        const updated = [...prev, userMessage];
+        return normalizeMessages(updated);
+      });
 
     try {
       const response = await fetch(`${API_BASE}/chat/stream`, {
@@ -121,7 +162,10 @@ export function useChat() {
         }
       }
 
-      setMessages(prev => [...prev, { type: 'ai', content: aiResponse, reasoning, pdfFile }]);
+      setMessages(prev => {
+        const updated = [...prev, { type: 'ai', content: aiResponse, reasoning, pdfFile }];
+        return normalizeMessages(updated);
+      });
       if (pdfFile) {
         loadPresupuestos();
       }

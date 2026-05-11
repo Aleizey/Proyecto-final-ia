@@ -20,6 +20,8 @@ function App() {
     loadPresupuestos,
   } = useChat();
 
+  console.log(messages)
+  
   const [input, setInput] = useState('');
   const [showPresupuestos, setShowPresupuestos] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
