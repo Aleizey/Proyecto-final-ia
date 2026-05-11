@@ -40,7 +40,10 @@ presupuestos/
 rag/chroma_db/
 
 # Credenciales
-credentials.json
+backend/agent/credentials.json
+
+# Fotos
+frontend/src/photo/
 
 # Environment variables
 .env

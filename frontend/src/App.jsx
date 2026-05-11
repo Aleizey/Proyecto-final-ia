@@ -118,7 +118,7 @@ function App() {
         <header className="flex items-center justify-between mb-8 border-b border-white/10 pb-4">
           <div className="flex items-center gap-3">
             <div className="bg-gradient-to-br from-purple-600 to-blue-600 p-2 rounded-lg shadow-lg shadow-purple-500/20">
-              <MessageCircle size={24} className="text-white" />
+              <img src="./photo/maraudio.png" alt="Maraudio" className="w-10 h-10 object-contain" />
             </div>
             <div>
               <h1 className="text-xl font-black tracking-tighter uppercase">Mar<span className="text-purple-500">audio</span></h1>
