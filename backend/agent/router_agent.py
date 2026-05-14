@@ -40,8 +40,13 @@ async def router_agent():
     conn = await aiosqlite.connect(SQLITE_PATH)
     checkpointer = AsyncSqliteSaver(conn)
 
-    modelo = ChatOllama(model="gemma4:latest", temperature=0)
-    all_tools = [generar_pdf_presupuesto, send_email_tool, tool_equipos, tool_presupuestos, tool_sonido] + get_cached_tools()
+    modelo = ChatOllama(model="qwen2.5:3b", temperature=0)
+    
+    base_tools = [generar_pdf_presupuesto, send_email_tool, tool_equipos, tool_presupuestos, tool_sonido]
+    print(f"[DEBUG] Herramientas base: {[t.name for t in base_tools]}")
+    
+    all_tools = base_tools + get_cached_tools()
+    print(f"[DEBUG] Todas las herramientas: {[t.name for t in all_tools]}")
 
     router = create_react_agent(
         model=modelo,

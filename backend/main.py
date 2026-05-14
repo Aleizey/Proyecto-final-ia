@@ -283,3 +283,14 @@ async def delete_conversation(thread_id: str):
         await conn.close()
 
     return {"message": "Conversation deleted", "thread_id": thread_id}
+
+
+@app.get("/test-email")
+async def test_email():
+    from tools.send_email import send_email_tool
+    result = send_email_tool.invoke({
+        "destinatario": "gabrieltenerife123@gmail.com",
+        "asunto": "Prueba desde API",
+        "cuerpo": "Test directo"
+    })
+    return {"result": result}

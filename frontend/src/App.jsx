@@ -217,7 +217,7 @@ function App() {
               {msg.type === 'user' || msg.type === 'HumanMessage' ? (
                 <div className="flex justify-end">
                   <div className="max-w-xl">
-                    <div className="bg-blue-600/30 p-4 rounded-full px-5">
+                    <div className="bg-blue-600/30 p-4 rounded-2xl px-10">
                       <p className="text-lg text-slate-200">{msg.content}</p>
                     </div>
                   </div>
