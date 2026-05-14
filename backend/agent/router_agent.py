@@ -3,7 +3,7 @@ from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from backend.agent.prompts import ROUTER_PROMPT
 from backend.agent.rag_agent import tool_equipos, tool_presupuestos, tool_sonido
-from backend.tools.send_email import send_email_tool
+from backend.tools.send_email import enviar_email_presupuesto
 from backend.tools.generate_pdf import generar_pdf_presupuesto
 import aiosqlite
 import os
@@ -17,24 +17,31 @@ if not hasattr(aiosqlite.Connection, "is_alive"):
         return True
     aiosqlite.Connection.is_alive = is_alive_patch
 
-_cached_tools = []
+_cached_calendar_tools = []
+_calendar_loading = False
 
-def get_cached_tools():
-    return _cached_tools
-
-async def init_calendar_tools():
-    global _cached_tools
+async def load_calendar_tools():
+    global _cached_calendar_tools, _calendar_loading
+    if _cached_calendar_tools:
+        return _cached_calendar_tools
+    if _calendar_loading:
+        return []
+    _calendar_loading = True
     try:
         from backend.tools.server_mcp import MCPServer
+        from backend.tools.calendar_wrapper import set_mcp_tools, list_events, search_events, get_event, get_current_time
         mcp_manager = MCPServer()
         await mcp_manager.connect()
-        tools = mcp_manager.get_tools_by_namespace("google_calendar")
-        _cached_tools.clear()
-        _cached_tools.extend(tools)
-        print(f"Herramientas de calendario cargadas: {len(_cached_tools)}")
+        mcp_tools = mcp_manager.get_tools_by_namespace("google_calendar")
+        set_mcp_tools(mcp_tools)
+        _cached_calendar_tools = [list_events, search_events, get_event, get_current_time]
+        print(f"Herramientas de calendario cargadas: {len(_cached_calendar_tools)}")
+        tool_names = [t.name for t in _cached_calendar_tools]
+        print(f"  - {tool_names}")
     except Exception as e:
         print(f"Advertencia: No se pudieron cargar herramientas de calendario: {e}")
-        _cached_tools.clear()
+        _cached_calendar_tools = []
+    return _cached_calendar_tools
 
 async def router_agent():
     conn = await aiosqlite.connect(SQLITE_PATH)
@@ -42,11 +49,11 @@ async def router_agent():
 
     modelo = ChatOllama(model="qwen2.5:3b", temperature=0)
     
-    base_tools = [generar_pdf_presupuesto, send_email_tool, tool_equipos, tool_presupuestos, tool_sonido]
-    print(f"[DEBUG] Herramientas base: {[t.name for t in base_tools]}")
+    calendar_tools = await load_calendar_tools()
     
-    all_tools = base_tools + get_cached_tools()
-    print(f"[DEBUG] Todas las herramientas: {[t.name for t in all_tools]}")
+    base_tools = [generar_pdf_presupuesto, enviar_email_presupuesto, tool_equipos, tool_presupuestos, tool_sonido]
+    all_tools = base_tools + calendar_tools
+    print(f"[DEBUG] Herramientas: {[t.name for t in all_tools]}")
 
     router = create_react_agent(
         model=modelo,

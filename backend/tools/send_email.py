@@ -36,24 +36,13 @@ def log_email_debug(msg: str):
         pass
 
 @tool
-def send_email_tool(destinatario: str, asunto: str = None, cuerpo: str = None, nombre_pdf: str = None) -> str:
+def enviar_email_presupuesto(destinatario: str) -> str:
     """
-    Envía un correo electrónico profesional al cliente con el presupuesto PDF adjunto.
-    
-    Parameters:
-    - destinatario: Email del cliente (ej: "cliente@email.com")
-    - asunto: Asunto del email (default: "Presupuesto MARAUDIO")
-    - cuerpo: Mensaje del email (default: texto estándar de MARAUDIO)
-    - nombre_pdf: Nombre del archivo PDF a adjuntar (default: el último generado)
-    
-    Ejemplo de uso:
-    - destinatario: "cliente@email.com"
-    - asunto: "Presupuesto para evento"
-    - cuerpo: "Adjunto encontrará el presupuesto solicitado"
-    
-    El email siempre incluye el presupuesto PDF más reciente si no se especifica nombre_pdf.
+    ENVIAR PRESUPUESTO POR EMAIL. Usa esta herramienta cuando el usuario pida enviar un presupuesto por correo electrónico.
+    El parámetro 'destinatario' es la dirección de email del cliente. Se adjunta automáticamente el último PDF de presupuesto generado.
+    Ejemplo: enviar_email_presupuesto(destinatario="cliente@gmail.com")
     """
-    log_email_debug(f"send_email_tool LLAMADA - destinatario={destinatario}, asunto={asunto}")
+    log_email_debug(f"enviar_email_presupuesto LLAMADA - destinatario={destinatario}")
     
     try:
         env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
@@ -71,14 +60,9 @@ def send_email_tool(destinatario: str, asunto: str = None, cuerpo: str = None, n
         msg = MIMEMultipart()
         msg['From'] = email_remitente
         msg['To'] = destinatario
+        msg['Subject'] = f"Presupuesto MARAUDIO - Sonido e Iluminación Profesional"
         
-        if not asunto:
-            asunto = "Presupuesto MARAUDIO - Sonido e Iluminación Profesional"
-        
-        msg['Subject'] = asunto
-        
-        if not cuerpo:
-            cuerpo = f"""Hola,
+        cuerpo = f"""Hola,
 
 Adjunto encontrarás el presupuesto de MARAUDIO para tu evento de sonido e iluminación.
 
@@ -87,14 +71,10 @@ Si tienes alguna pregunta, no dudes en contactarnos.
 Un saludo,
 MARAUDIO
 Soporte Técnico Profesional"""
-
+        
         msg.attach(MIMEText(cuerpo, 'plain', 'utf-8'))
         
-        ruta_pdf = None
-        if nombre_pdf:
-            ruta_pdf = os.path.join("presupuestos", nombre_pdf)
-        else:
-            ruta_pdf = get_latest_presupuesto()
+        ruta_pdf = get_latest_presupuesto()
         
         if ruta_pdf and os.path.exists(ruta_pdf):
             with open(ruta_pdf, "rb") as attachment:
@@ -116,9 +96,6 @@ Soporte Técnico Profesional"""
         
         return f"Email enviado con éxito a {destinatario}{attachment_info}"
     
-    except smtplib.SMTPAuthenticationError:
-        log_email_debug(f"AuthenticationError - {str(e)}")
-        return "Error: Credenciales de Gmail incorrectas. Asegúrate de usar una App Password, no tu contraseña normal."
     except Exception as e:
-        log_email_debug(f"Error general - {str(e)}")
+        log_email_debug(f"Error - {str(e)}")
         return f"Error al enviar el email: {str(e)}"

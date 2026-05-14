@@ -8,7 +8,6 @@ from pydantic import BaseModel
 import os
 from fastapi.middleware.cors import CORSMiddleware
 from backend.agent.router_agent import router_agent
-from backend.agent.availability_agent import availability_agent
 from backend.agent.budget_agent import budget_agent
 from backend.models import ChatRequest, ConversationHistoryResponse, ConversationMeta, ConversationListResponse, CreateConversationResponse
 import aiosqlite
@@ -63,6 +62,17 @@ app.add_middleware(
 
 from backend.agent.router_agent import SQLITE_PATH
 
+from backend.agent.router_agent import load_calendar_tools
+
+
+@app.on_event("startup")
+async def startup():
+    print("Precargando herramientas de calendario...")
+    try:
+        await load_calendar_tools()
+    except Exception as e:
+        print(f"Error precargando calendario: {e}")
+
 
 async def get_checkpointer():
     conn = await aiosqlite.connect(SQLITE_PATH)
@@ -70,52 +80,59 @@ async def get_checkpointer():
 
 
 async def ai_response(message: str, thread_id: str):
-    agent, conn = await router_agent()
-    async for paso in agent.astream(
-        {"messages": [("user", message)]},
-        stream_mode="values",
-        config={"configurable": {"thread_id": thread_id}}
-    ):
-        if paso["messages"]:
-            ultimo_mensaje = paso["messages"][-1]
-            if ultimo_mensaje.type == "ai":
-                content = limpiar_contenido(ultimo_mensaje.content)
-                pdf_file = None
+    try:
+        agent, conn = await router_agent()
+        async for paso in agent.astream(
+            {"messages": [("user", message)]},
+            stream_mode="values",
+            config={"configurable": {"thread_id": thread_id}}
+        ):
+            if paso["messages"]:
+                ultimo_mensaje = paso["messages"][-1]
+                if ultimo_mensaje.type == "ai":
+                    contenido_raw = ultimo_mensaje.content
+                    
+                    if not contenido_raw or contenido_raw == "":
+                        continue
+                    
+                    if not isinstance(contenido_raw, str):
+                        if isinstance(contenido_raw, list):
+                            texto = ""
+                            for block in contenido_raw:
+                                if isinstance(block, dict) and block.get("type") == "text":
+                                    texto += block.get("text", "")
+                            contenido_raw = texto
+                        else:
+                            contenido_raw = str(contenido_raw)
+                    
+                    if not contenido_raw.strip():
+                        continue
+                    
+                    content = limpiar_contenido(contenido_raw)
+                    pdf_file = None
 
-                import re
-                match = re.search(r'presupuesto[_\s]+[^\s]+\.pdf', content)
-                if match:
-                    pdf_file = match.group(0)
-                elif "PDF generado" in content:
-                    archivos = os.listdir("presupuestos")
-                    archivos.sort(key=lambda x: os.path.getmtime(os.path.join("presupuestos", x)), reverse=True)
-                    if archivos:
-                        pdf_file = archivos[0]
+                    import re
+                    match = re.search(r'presupuesto[_\s]+[^\s]+\.pdf', content)
+                    if match:
+                        pdf_file = match.group(0)
+                    elif "PDF generado" in content:
+                        archivos = os.listdir("presupuestos")
+                        archivos.sort(key=lambda x: os.path.getmtime(os.path.join("presupuestos", x)), reverse=True)
+                        if archivos:
+                            pdf_file = archivos[0]
 
-                data = {
-                    "content": content,
-                    "reasoning": ultimo_mensaje.additional_kwargs.get("reasoning_content", ""),
-                    "pdf_file": pdf_file
-                }
-                yield json.dumps(data) + "\n"
-    await conn.close()
-
-async def availability_response(message: str, thread_id: str):
-    agent, conn = await availability_agent()
-    async for paso in agent.astream(
-        {"messages": [("user", message)]},
-        stream_mode="values",
-        config={"configurable": {"thread_id": thread_id}}
-    ):
-        if paso["messages"]:
-            ultimo_mensaje = paso["messages"][-1]
-            if ultimo_mensaje.type == "ai":
-                data = {
-                    "content": ultimo_mensaje.content,
-                    "reasoning": ultimo_mensaje.additional_kwargs.get("reasoning_content", "")
-                }
-                yield json.dumps(data) + "\n"
-    await conn.close()
+                    data = {
+                        "content": content,
+                        "reasoning": ultimo_mensaje.additional_kwargs.get("reasoning_content", ""),
+                        "pdf_file": pdf_file
+                    }
+                    yield json.dumps(data) + "\n"
+        await conn.close()
+    except Exception as e:
+        print(f"Error en ai_response: {e}")
+        import traceback
+        traceback.print_exc()
+        yield json.dumps({"content": f"Error: {str(e)}", "reasoning": "", "pdf_file": None}) + "\n"
 
 async def budget_response(message: str, thread_id: str):
     agent, conn = await budget_agent()
@@ -144,7 +161,7 @@ async def chat_stream(request: ChatRequest):
 @app.post("/availability/stream")
 async def availability_stream(request: ChatRequest):
     thread_id = request.thread_id if request.thread_id != "default" else "availability"
-    return StreamingResponse(availability_response(request.message, thread_id), media_type="text/event-stream")
+    return StreamingResponse(ai_response(request.message, thread_id), media_type="text/event-stream")
 
 
 @app.post("/budget/stream")
@@ -283,14 +300,3 @@ async def delete_conversation(thread_id: str):
         await conn.close()
 
     return {"message": "Conversation deleted", "thread_id": thread_id}
-
-
-@app.get("/test-email")
-async def test_email():
-    from tools.send_email import send_email_tool
-    result = send_email_tool.invoke({
-        "destinatario": "gabrieltenerife123@gmail.com",
-        "asunto": "Prueba desde API",
-        "cuerpo": "Test directo"
-    })
-    return {"result": result}
